@@ -26,7 +26,7 @@ type DeliveryType = "DELIVERY" | "PICKUP";
 export function CartDrawer() {
   const { state, removeItem, updateQuantity, clearCart, closeCart, totalAmount, totalItems } =
     useCart();
-  const { data: session } = useSession();
+  const session = useSession()?.data;
   const router = useRouter();
   const { toast } = useToast();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("DELIVERY");
