@@ -12,16 +12,18 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string } } | n
     // Se já logado, redirecionar para área correta
     if (session?.user && pathname === "/login") {
       const role = session.user.role;
-      return NextResponse.redirect(
-        new URL(role === "ADMIN" ? "/admin/dashboard" : "/produtos", req.url)
-      );
+      const destUrl = req.nextUrl.clone();
+      destUrl.pathname = role === "ADMIN" ? "/admin/dashboard" : "/produtos";
+      destUrl.search = "";
+      return NextResponse.redirect(destUrl);
     }
     return NextResponse.next();
   }
 
-  // Rotas não autenticadas — redirecionar para login
+  // Rotas não autenticadas — redirecionar para login usando o mesmo domínio
   if (!session?.user) {
-    const loginUrl = new URL("/login", req.url);
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = "/login";
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -29,7 +31,10 @@ export default auth((req: NextRequest & { auth: { user?: { role?: string } } | n
   // Rotas de admin — verificar papel
   if (pathname.startsWith("/admin")) {
     if (session.user.role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/produtos", req.url));
+      const prodUrl = req.nextUrl.clone();
+      prodUrl.pathname = "/produtos";
+      prodUrl.search = "";
+      return NextResponse.redirect(prodUrl);
     }
   }
 
