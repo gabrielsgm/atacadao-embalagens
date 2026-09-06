@@ -1,6 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
 @import "tailwindcss";
 
+@theme {
+  --color-surface-900: #0a0a0f;
+  --color-surface-800: #14141f;
+  --color-surface-700: #1b1b28;
+  --color-surface-600: #232334;
+  --color-surface-500: #2c2c42;
+  --color-surface-400: #383852;
+  --color-surface-300: #464666;
+  --color-surface-100: #8888aa;
+  --color-surface-50: #b0b0cc;
+  --color-brand-500: #f97316;
+  --color-brand-600: #ea6c0a;
+}
+
 :root {
   --font-inter: "Inter", system-ui, sans-serif;
 
