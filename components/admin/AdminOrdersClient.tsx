@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { OrderStatusBadge, Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toaster";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import { Search, Download, RotateCcw } from "lucide-react";
+import { MessageCircle, Search, Download, RotateCcw } from "lucide-react";
 
 type OrderStatus = "PENDING" | "CONFIRMED" | "DELIVERING" | "DELIVERED" | "CANCELLED";
 
@@ -30,7 +30,7 @@ interface Order {
   user: {
     name: string;
     email: string;
-    client: { companyName: string; phone: string } | null;
+    client: { companyName: string; phone: string; whatsapp?: string | null } | null;
   };
 }
 
@@ -38,10 +38,83 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Todos os Status" },
   { value: "PENDING", label: "Pendentes (Novos)" },
   { value: "CONFIRMED", label: "Confirmados" },
-  { value: "DELIVERING", label: "Em Rota / Despachados" },
+  { value: "DELIVERING", label: "Em Rota de Entrega" },
   { value: "DELIVERED", label: "Entregues" },
   { value: "CANCELLED", label: "Cancelados / Recusados" },
 ];
+
+function getClientPhone(order: Order): string {
+  return order.user.client?.whatsapp || order.user.client?.phone || "";
+}
+
+function openWhatsApp(phone: string, text: string) {
+  const clean = phone.replace(/\D/g, "");
+  const formatted = clean.length > 0 ? (clean.startsWith("55") ? clean : `55${clean}`) : "";
+  const url = formatted
+    ? `https://wa.me/${formatted}?text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
+  window.open(url, "_blank");
+}
+
+function sendAcceptWhatsApp(order: Order) {
+  const clientName = order.user.client?.companyName || order.user.name;
+  const deliveryInfo =
+    order.deliveryType === "DELIVERY"
+      ? "🚚 Avisaremos assim que o entregador sair para o seu endereço."
+      : "🏪 Avisaremos assim que estiver pronto para retirada no nosso balcão.";
+
+  const msg = [
+    `Olá, *${clientName}*! 👋`,
+    `Aqui é do *Atacadão Embalagens*.`,
+    ``,
+    `✅ Seu pedido *#${order.orderNumber}* no valor de *${formatCurrency(order.totalAmount)}* foi *ACEITO e CONFIRMADO*!`,
+    `Nossa equipe já está separando os seus produtos com todo o cuidado.`,
+    ``,
+    deliveryInfo,
+    ``,
+    `Agradecemos a confiança e preferência! 📦✨`,
+  ].join("\n");
+
+  openWhatsApp(getClientPhone(order), msg);
+}
+
+function sendPickupReadyWhatsApp(order: Order) {
+  const clientName = order.user.client?.companyName || order.user.name;
+  const msg = [
+    `Olá, *${clientName}*! 👋`,
+    `Aqui é do *Atacadão Embalagens*.`,
+    ``,
+    `🏪 *SEU PEDIDO JÁ ESTÁ PRONTO PARA RETIRADA!*`,
+    `Pedido: *#${order.orderNumber}*`,
+    ``,
+    `📍 *Local para Retirada:*`,
+    `Rua das Embalagens, 1000 - Distrito Industrial, Itabuna/BA`,
+    `⏰ *Horário de Funcionamento:*`,
+    `Segunda a Sexta: 8h às 18h | Sábado: 8h às 13h`,
+    ``,
+    `Basta informar o número do pedido no balcão de retirada. Te esperamos! 📦`,
+  ].join("\n");
+
+  openWhatsApp(getClientPhone(order), msg);
+}
+
+function sendDeliveringWhatsApp(order: Order) {
+  const clientName = order.user.client?.companyName || order.user.name;
+  const msg = [
+    `Olá, *${clientName}*! 👋`,
+    `Aqui é do *Atacadão Embalagens*.`,
+    ``,
+    `🚚 *BOAS NOTÍCIAS! SEU PEDIDO SAIU PARA ENTREGA!*`,
+    `Pedido: *#${order.orderNumber}*`,
+    ``,
+    `Nosso entregador já está a caminho do seu endereço com as embalagens.`,
+    `Por favor, mantenha alguém disponível no local para receber a entrega.`,
+    ``,
+    `Qualquer dúvida estamos à disposição! 🛵📦`,
+  ].join("\n");
+
+  openWhatsApp(getClientPhone(order), msg);
+}
 
 export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] }) {
   const { toast } = useToast();
@@ -180,7 +253,7 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                 <th className="px-4 py-3 text-surface-100 font-medium">Total</th>
                 <th className="px-4 py-3 text-surface-100 font-medium">Status</th>
                 <th className="px-4 py-3 text-surface-100 font-medium hidden sm:table-cell">Data</th>
-                <th className="px-4 py-3 text-surface-100 font-medium text-right">Controle de Entrada</th>
+                <th className="px-4 py-3 text-surface-100 font-medium text-right">Ações & Notificações</th>
               </tr>
             </thead>
             <tbody>
@@ -221,15 +294,36 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                       {formatDateTime(order.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* Botão de WhatsApp direto com o cliente */}
+                        <button
+                          onClick={() => {
+                            const phone = getClientPhone(order);
+                            openWhatsApp(
+                              phone,
+                              `Olá! Aqui é do Atacadão Embalagens sobre o seu pedido #${order.orderNumber}.`
+                            );
+                          }}
+                          className="p-1.5 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/25 border border-green-500/20 transition-colors"
+                          title="Abrir WhatsApp do cliente"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </button>
+
+                        {/* Botões para pedido PENDENTE (Novo) */}
                         {order.status === "PENDING" && (
                           <>
                             <button
-                              onClick={() => updateOrderStatus(order.id, "CONFIRMED")}
+                              onClick={async () => {
+                                await updateOrderStatus(order.id, "CONFIRMED");
+                                sendAcceptWhatsApp(order);
+                              }}
                               disabled={updatingId === order.id}
-                              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-green-600 hover:bg-green-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                              className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-green-600 hover:bg-green-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                              title="Aceitar pedido e abrir WhatsApp para avisar o cliente"
                             >
-                              {updatingId === order.id ? "Salvando..." : "✔ Aceitar"}
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              {updatingId === order.id ? "Salvando..." : "Aceitar & Avisar"}
                             </button>
                             <button
                               onClick={() => cancelOrder(order)}
@@ -241,19 +335,33 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                           </>
                         )}
 
+                        {/* Botões para pedido CONFIRMADO */}
                         {order.status === "CONFIRMED" && (
                           <>
-                            <button
-                              onClick={() => updateOrderStatus(order.id, "DELIVERING")}
-                              disabled={updatingId === order.id}
-                              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
-                            >
-                              {updatingId === order.id
-                                ? "Salvando..."
-                                : order.deliveryType === "DELIVERY"
-                                ? "🚚 Despachar"
-                                : "🏪 Pronto p/ Retirada"}
-                            </button>
+                            {order.deliveryType === "PICKUP" ? (
+                              <button
+                                onClick={() => sendPickupReadyWhatsApp(order)}
+                                className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all"
+                                title="Avisar no WhatsApp que está pronto para retirada"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                🏪 Avisar Pronto p/ Retirada
+                              </button>
+                            ) : (
+                              <button
+                                onClick={async () => {
+                                  await updateOrderStatus(order.id, "DELIVERING");
+                                  sendDeliveringWhatsApp(order);
+                                }}
+                                disabled={updatingId === order.id}
+                                className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                title="Marcar em rota e avisar no WhatsApp que saiu para entrega"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                {updatingId === order.id ? "Salvando..." : "🚚 Avisar Saiu p/ Entrega"}
+                              </button>
+                            )}
+
                             <button
                               onClick={() => cancelOrder(order)}
                               disabled={updatingId === order.id}
@@ -264,6 +372,7 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                           </>
                         )}
 
+                        {/* Botão para pedido EM ENTREGA */}
                         {order.status === "DELIVERING" && (
                           <button
                             onClick={() => updateOrderStatus(order.id, "DELIVERED")}
