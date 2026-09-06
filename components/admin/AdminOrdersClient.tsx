@@ -35,27 +35,13 @@ interface Order {
 }
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "Todos" },
-  { value: "PENDING", label: "Pendente" },
-  { value: "CONFIRMED", label: "Confirmado" },
-  { value: "DELIVERING", label: "Em entrega" },
-  { value: "DELIVERED", label: "Entregue" },
-  { value: "CANCELLED", label: "Cancelado" },
+  { value: "", label: "Todos os Status" },
+  { value: "PENDING", label: "Pendentes (Novos)" },
+  { value: "CONFIRMED", label: "Confirmados" },
+  { value: "DELIVERING", label: "Em Rota / Despachados" },
+  { value: "DELIVERED", label: "Entregues" },
+  { value: "CANCELLED", label: "Cancelados / Recusados" },
 ];
-
-const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
-  PENDING: "CONFIRMED",
-  CONFIRMED: "DELIVERING",
-  DELIVERING: "DELIVERED",
-  DELIVERED: null,
-  CANCELLED: null,
-};
-
-const NEXT_STATUS_LABEL: Record<string, string> = {
-  CONFIRMED: "Confirmar",
-  DELIVERING: "Em entrega",
-  DELIVERED: "Marcar entregue",
-};
 
 export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] }) {
   const { toast } = useToast();
@@ -63,6 +49,7 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const filtered = orders.filter((o) => {
     const matchSearch =
@@ -73,49 +60,70 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
     return matchSearch && matchStatus;
   });
 
-  const advanceStatus = async (order: Order) => {
-    const nextStatus = NEXT_STATUS[order.status];
-    if (!nextStatus) return;
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    setUpdatingId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    const res = await fetch(`/api/orders/${order.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: nextStatus }),
-    });
-
-    if (res.ok) {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: nextStatus } : o))
-      );
-      toast({ type: "success", title: `Pedido ${order.orderNumber} atualizado` });
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        );
+        const statusNames: Record<string, string> = {
+          CONFIRMED: "aceito e confirmado",
+          DELIVERING: "em rota de entrega",
+          DELIVERED: "concluído com sucesso",
+          CANCELLED: "recusado / cancelado",
+        };
+        toast({
+          type: "success",
+          title: "Status atualizado!",
+          description: `Pedido marcado como ${statusNames[newStatus] || newStatus}.`,
+        });
+      } else {
+        toast({
+          type: "error",
+          title: "Erro ao atualizar pedido",
+          description: "Verifique se a rota da API está ativa.",
+        });
+      }
+    } catch {
+      toast({
+        type: "error",
+        title: "Erro de conexão",
+        description: "Não foi possível atualizar o pedido.",
+      });
+    } finally {
+      setUpdatingId(null);
     }
   };
 
   const cancelOrder = async (order: Order) => {
-    if (!confirm(`Cancelar pedido ${order.orderNumber}?`)) return;
-    const res = await fetch(`/api/orders/${order.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "CANCELLED" }),
-    });
-    if (res.ok) {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === order.id ? { ...o, status: "CANCELLED" } : o))
-      );
-      toast({ type: "info", title: "Pedido cancelado" });
-    }
+    if (!confirm(`Tem certeza que deseja recusar/cancelar o pedido ${order.orderNumber}?`)) return;
+    await updateOrderStatus(order.id, "CANCELLED");
   };
 
   const exportExcel = async () => {
     setIsExporting(true);
-    const res = await fetch("/api/export/orders");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `pedidos_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    a.click();
-    setIsExporting(false);
+    try {
+      const res = await fetch("/api/export/orders");
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pedidos-${new Date().toISOString().split("T")[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ type: "error", title: "Erro ao exportar pedidos" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -125,7 +133,7 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
           <h1 className="text-2xl font-black text-white">
             Pedidos <span className="gradient-text">Admin</span>
           </h1>
-          <p className="text-surface-100 mt-1 text-sm">{filtered.length} pedido(s)</p>
+          <p className="text-surface-100 mt-1 text-sm">{filtered.length} pedido(s) encontrado(s)</p>
         </div>
         <Button
           variant="secondary"
@@ -151,7 +159,7 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-lg border border-surface-500 bg-surface-700 text-sm text-white px-3 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+          className="h-10 rounded-xl border border-surface-600 bg-surface-700 text-sm text-white px-3 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
           id="orders-status-filter"
         >
           {STATUS_OPTIONS.map((opt) => (
@@ -162,30 +170,35 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
         </select>
       </div>
 
-      <div className="bg-surface-800 rounded-2xl border border-surface-700 overflow-hidden">
+      <div className="bg-surface-800 rounded-2xl border border-surface-700 overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-surface-700 text-left">
+              <tr className="border-b border-surface-700 text-left bg-[#101018]">
                 <th className="px-4 py-3 text-surface-100 font-medium">Pedido</th>
                 <th className="px-4 py-3 text-surface-100 font-medium hidden md:table-cell">Cliente</th>
                 <th className="px-4 py-3 text-surface-100 font-medium">Total</th>
                 <th className="px-4 py-3 text-surface-100 font-medium">Status</th>
                 <th className="px-4 py-3 text-surface-100 font-medium hidden sm:table-cell">Data</th>
-                <th className="px-4 py-3 text-surface-100 font-medium text-right">Ações</th>
+                <th className="px-4 py-3 text-surface-100 font-medium text-right">Controle de Entrada</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((order) => {
-                const nextStatus = NEXT_STATUS[order.status];
-                return (
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                    Nenhum pedido encontrado.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((order) => (
                   <tr key={order.id} className="border-b border-surface-700/50 hover:bg-surface-700/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono font-bold text-white text-xs">{order.orderNumber}</span>
                         {order.isRecurring && (
                           <Badge variant="info" size="sm">
-                            <RotateCcw className="h-3 w-3 mr-1" /> Rec.
+                            <RotateCcw className="h-3 w-3 mr-1" /> Recorrência
                           </Badge>
                         )}
                       </div>
@@ -208,28 +221,67 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                       {formatDateTime(order.createdAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        {nextStatus && NEXT_STATUS_LABEL[nextStatus] && (
+                      <div className="flex items-center justify-end gap-2">
+                        {order.status === "PENDING" && (
+                          <>
+                            <button
+                              onClick={() => updateOrderStatus(order.id, "CONFIRMED")}
+                              disabled={updatingId === order.id}
+                              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-green-600 hover:bg-green-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                              {updatingId === order.id ? "Salvando..." : "✔ Aceitar"}
+                            </button>
+                            <button
+                              onClick={() => cancelOrder(order)}
+                              disabled={updatingId === order.id}
+                              className="text-xs font-medium px-2.5 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-600 hover:text-white text-red-300 border border-red-500/30 transition-all disabled:opacity-50"
+                            >
+                              ✕ Recusar
+                            </button>
+                          </>
+                        )}
+
+                        {order.status === "CONFIRMED" && (
+                          <>
+                            <button
+                              onClick={() => updateOrderStatus(order.id, "DELIVERING")}
+                              disabled={updatingId === order.id}
+                              className="text-xs font-bold px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                              {updatingId === order.id
+                                ? "Salvando..."
+                                : order.deliveryType === "DELIVERY"
+                                ? "🚚 Despachar"
+                                : "🏪 Pronto p/ Retirada"}
+                            </button>
+                            <button
+                              onClick={() => cancelOrder(order)}
+                              disabled={updatingId === order.id}
+                              className="text-xs px-2 py-1.5 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </>
+                        )}
+
+                        {order.status === "DELIVERING" && (
                           <button
-                            onClick={() => advanceStatus(order)}
-                            className="text-xs px-2.5 py-1.5 rounded-lg bg-brand-500/20 text-brand-400 border border-brand-500/30 hover:bg-brand-500/30 transition-colors"
+                            onClick={() => updateOrderStatus(order.id, "DELIVERED")}
+                            disabled={updatingId === order.id}
+                            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-green-600 hover:bg-green-500 text-white shadow-sm hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                           >
-                            {NEXT_STATUS_LABEL[nextStatus]}
+                            {updatingId === order.id ? "Salvando..." : "✔ Concluir Entrega"}
                           </button>
                         )}
-                        {order.status !== "CANCELLED" && order.status !== "DELIVERED" && (
-                          <button
-                            onClick={() => cancelOrder(order)}
-                            className="text-xs px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors"
-                          >
-                            Cancelar
-                          </button>
+
+                        {(order.status === "DELIVERED" || order.status === "CANCELLED") && (
+                          <span className="text-xs text-zinc-500 italic pr-2">—</span>
                         )}
                       </div>
                     </td>
                   </tr>
-                );
-              })}
+                ))
+              )}
             </tbody>
           </table>
         </div>
