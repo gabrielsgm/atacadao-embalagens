@@ -1,29 +1,29 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { useCart } from "@/lib/cart-context";
+import { useCart } from "@/components/cart/CartProvider";
+import { CartDrawer } from "@/components/cart/CartDrawer";
 import {
-  Package,
   ShoppingCart,
   User,
   LogOut,
   LayoutDashboard,
+  Package,
   RotateCcw,
+  ChevronDown,
   Menu,
   X,
-  ChevronDown,
 } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function Header() {
-  const session = useSession()?.data;
+  const sessionResult = useSession();
+  const session = sessionResult?.data;
   const { totalItems, toggleCart } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const pathname = usePathname();
 
   const isAdmin = session?.user?.role === "ADMIN";
 
@@ -41,7 +41,7 @@ export function Header() {
             </span>
           </Link>
 
-          {/* Navegação Desktop do Cliente */}
+          {/* Desktop nav — Cliente */}
           {!isAdmin && (
             <nav className="hidden md:flex items-center gap-1">
               <Link
@@ -65,7 +65,7 @@ export function Header() {
             </nav>
           )}
 
-          {/* Navegação Desktop do Admin */}
+          {/* Desktop nav — Admin */}
           {isAdmin && (
             <nav className="hidden md:flex items-center gap-1">
               <Link href="/admin/dashboard" className="px-3.5 py-2 rounded-xl text-sm font-medium text-zinc-300 hover:text-white hover:bg-[#1a1a26] transition-all">
@@ -123,7 +123,7 @@ export function Header() {
 
               {userMenuOpen && (
                 <>
-                  <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setUserMenuOpen(false)} />
+                  <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" onClick={() => setUserMenuOpen(false)} />
                   <div className="absolute right-0 top-full mt-2.5 w-64 bg-[#14141f] border border-[#2c2c40] rounded-2xl shadow-2xl z-50 p-2 animate-fade-in divide-y divide-[#222232]">
                     <div className="px-3.5 py-3 bg-[#0d0d15] rounded-xl mb-1.5 border border-white/5">
                       <p className="text-sm font-bold text-white truncate">{session?.user?.name}</p>
@@ -169,7 +169,7 @@ export function Header() {
               )}
             </div>
 
-            {/* Botão mobile */}
+            {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-xl bg-[#161622] hover:bg-[#202030] border border-[#2b2b3d] text-white transition-all"
@@ -179,7 +179,7 @@ export function Header() {
           </div>
         </div>
 
-        {/* Menu Mobile */}
+        {/* Mobile nav */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-[#222230] bg-[#101018] px-4 py-3 space-y-1.5 animate-fade-in">
             {!isAdmin ? (
