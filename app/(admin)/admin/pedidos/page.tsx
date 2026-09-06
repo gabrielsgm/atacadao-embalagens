@@ -9,7 +9,13 @@ export default async function AdminPedidosPage() {
   const orders = await prisma.order.findMany({
     include: {
       items: true,
-      user: { select: { name: true, email: true, client: { select: { companyName: true, phone: true } } } },
+      user: {
+        select: {
+          name: true,
+          email: true,
+          client: { select: { companyName: true, phone: true, whatsapp: true } },
+        },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: 100,
