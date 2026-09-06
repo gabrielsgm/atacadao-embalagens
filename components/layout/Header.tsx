@@ -105,7 +105,7 @@ export function Header() {
               </button>
             )}
 
-            {/* Menu do Usuário (Admin / Cliente) com Fundo 100% Sólido */}
+            {/* Menu do Usuário */}
             <div className="relative">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -169,7 +169,7 @@ export function Header() {
               )}
             </div>
 
-            {/* Botão do menu mobile */}
+            {/* Botão mobile */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-xl bg-[#161622] hover:bg-[#202030] border border-[#2b2b3d] text-white transition-all"
@@ -179,7 +179,7 @@ export function Header() {
           </div>
         </div>
 
-        {/* Menu Mobile Sólido */}
+        {/* Menu Mobile */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-[#222230] bg-[#101018] px-4 py-3 space-y-1.5 animate-fade-in">
             {!isAdmin ? (
@@ -216,9 +216,8 @@ export function Header() {
           </div>
         )}
       </header>
-    </>
-  );
-}
 
+      <CartDrawer />
+    </>
   );
 }
