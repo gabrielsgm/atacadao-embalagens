@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect } from "react";
+import { calculateProductPricing } from "@/lib/pricing";
 
 export interface CartItem {
   productId: string;
@@ -11,6 +12,8 @@ export interface CartItem {
   unitsPerPackage: number;
   packagePrice: number;
   unitPrice: number;
+  balePrice?: number | null;
+  unitsPerBale?: number | null;
 }
 
 interface CartState {
@@ -118,10 +121,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [state.items]);
 
   const totalItems = state.items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalAmount = state.items.reduce(
-    (sum, i) => sum + i.packagePrice * i.quantity,
-    0
-  );
+  const totalAmount = state.items.reduce((sum, i) => {
+    const pricing = calculateProductPricing({
+      quantity: i.quantity,
+      packagePrice: i.packagePrice,
+      unitsPerPackage: i.unitsPerPackage,
+      balePrice: i.balePrice,
+      unitsPerBale: i.unitsPerBale,
+    });
+    return sum + pricing.subtotal;
+  }, 0);
 
   const value: CartContextValue = {
     state,

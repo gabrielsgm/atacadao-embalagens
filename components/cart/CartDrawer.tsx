@@ -13,6 +13,7 @@ import {
   Plus,
   Minus,
   Package,
+  Boxes,
   MapPin,
   Store,
   MessageCircle,
@@ -20,6 +21,7 @@ import {
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
+import { calculateProductPricing } from "@/lib/pricing";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toaster";
 import { useSession } from "next-auth/react";
@@ -162,81 +164,122 @@ export function CartDrawer() {
               </Button>
             </div>
           ) : (
-            state.items.map((item) => (
-              <div
-                key={item.productId}
-                className="bg-surface-700 rounded-xl p-3 border border-surface-600"
-              >
-                <div className="flex items-start gap-3">
-                  {/* Image */}
-                  <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-surface-600 shrink-0">
-                    {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.name}
-                        fill
-                        className="object-cover"
-                        sizes="64px"
-                      />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Package className="h-6 w-6 text-surface-400" />
+            state.items.map((item) => {
+              const pricing = calculateProductPricing({
+                quantity: item.quantity,
+                packagePrice: item.packagePrice,
+                unitsPerPackage: item.unitsPerPackage,
+                balePrice: item.balePrice,
+                unitsPerBale: item.unitsPerBale,
+              });
+
+              return (
+                <div
+                  key={item.productId}
+                  className="bg-surface-700 rounded-xl p-3 border border-surface-600 space-y-2"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Image */}
+                    <div className="relative h-16 w-16 rounded-lg overflow-hidden bg-surface-600 shrink-0">
+                      {item.imageUrl ? (
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.name}
+                          fill
+                          className="object-cover"
+                          sizes="64px"
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center">
+                          <Package className="h-6 w-6 text-surface-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-surface-100 mt-0.5">
+                        {item.unitsPerPackage} un/pacote ·{" "}
+                        {formatCurrency(item.packagePrice)}/pct
+                      </p>
+
+                      {/* Quantity controls */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() =>
+                            updateQuantity(item.productId, item.quantity - 1)
+                          }
+                          className="h-7 w-7 rounded-lg bg-surface-600 hover:bg-surface-500 text-white flex items-center justify-center transition-colors"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-sm font-bold text-white min-w-[2rem] text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() =>
+                            updateQuantity(item.productId, item.quantity + 1)
+                          }
+                          className="h-7 w-7 rounded-lg bg-surface-600 hover:bg-surface-500 text-white flex items-center justify-center transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                        <span className="text-xs text-surface-100 ml-1">
+                          = {pricing.totalUnits} un
+                        </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">
-                      {item.name}
-                    </p>
-                    <p className="text-xs text-surface-100 mt-0.5">
-                      {item.unitsPerPackage} un/pacote ·{" "}
-                      {formatCurrency(item.packagePrice)}/pct
-                    </p>
-
-                    {/* Quantity controls */}
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={() =>
-                          updateQuantity(item.productId, item.quantity - 1)
-                        }
-                        className="h-7 w-7 rounded-lg bg-surface-600 hover:bg-surface-500 text-white flex items-center justify-center transition-colors"
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="text-sm font-bold text-white min-w-[2rem] text-center">
-                        {item.quantity}
+                    {/* Subtotal + Remove */}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-sm font-bold text-brand-400">
+                        {formatCurrency(pricing.subtotal)}
                       </span>
+                      {pricing.discount > 0 && (
+                        <span className="text-[10px] text-surface-400 line-through">
+                          {formatCurrency(pricing.regularSubtotal)}
+                        </span>
+                      )}
                       <button
-                        onClick={() =>
-                          updateQuantity(item.productId, item.quantity + 1)
-                        }
-                        className="h-7 w-7 rounded-lg bg-surface-600 hover:bg-surface-500 text-white flex items-center justify-center transition-colors"
+                        onClick={() => removeItem(item.productId)}
+                        className="p-1.5 rounded-lg text-surface-100 hover:text-red-400 hover:bg-red-500/10 transition-colors"
                       >
-                        <Plus className="h-3 w-3" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
-                      <span className="text-xs text-surface-100 ml-1">
-                        = {item.quantity * item.unitsPerPackage} un
-                      </span>
                     </div>
                   </div>
 
-                  {/* Subtotal + Remove */}
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className="text-sm font-bold text-brand-400">
-                      {formatCurrency(item.packagePrice * item.quantity)}
-                    </span>
-                    <button
-                      onClick={() => removeItem(item.productId)}
-                      className="p-1.5 rounded-lg text-surface-100 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {/* Detalhe de conversão para fardo no carrinho */}
+                  {pricing.hasBaleConversion ? (
+                    <div className="flex items-center justify-between text-[11px] bg-emerald-500/10 border border-emerald-500/25 rounded-lg px-2.5 py-1 text-emerald-300">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Boxes className="h-3.5 w-3.5 text-emerald-400" />
+                        Convertido: {pricing.summaryLabel}
+                      </span>
+                      {pricing.discount > 0 && (
+                        <span className="font-semibold text-emerald-400">
+                          - {formatCurrency(pricing.discount)}
+                        </span>
+                      )}
+                    </div>
+                  ) : pricing.packagesPerBale ? (
+                    <div className="flex items-center justify-between text-[10px] text-surface-300 bg-surface-800/40 rounded-lg px-2 py-1 border border-surface-700">
+                      <span>Fardo: {pricing.packagesPerBale} pct ({formatCurrency(item.balePrice!)})</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.productId, pricing.packagesPerBale!)}
+                        className="text-brand-400 hover:text-brand-300 font-semibold underline"
+                      >
+                        + {pricing.packagesPerBale - item.quantity} pct p/ fardo
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

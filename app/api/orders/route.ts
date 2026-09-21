@@ -8,6 +8,7 @@ import {
 } from "@/lib/whatsapp";
 import { z } from "zod";
 import { requireCompleteProfile } from "@/lib/profile-guard";
+import { calculateProductPricing } from "@/lib/pricing";
 
 const orderSchema = z.object({
   items: z.array(
@@ -109,10 +110,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Calcular total
+    // Calcular total com conversão de fardo aplicada
     const orderItems = items.map((item) => {
       const product = products.find((p) => p.id === item.productId)!;
-      const subtotal = Number(product.packagePrice) * item.quantity;
+      const pricing = calculateProductPricing({
+        quantity: item.quantity,
+        packagePrice: Number(product.packagePrice),
+        unitsPerPackage: product.unitsPerPackage,
+        balePrice: product.balePrice ? Number(product.balePrice) : null,
+        unitsPerBale: product.unitsPerBale ?? null,
+      });
+
       return {
         productId: product.id,
         productName: product.name,
@@ -120,7 +128,9 @@ export async function POST(req: NextRequest) {
         quantity: item.quantity,
         unitPrice: product.unitPrice,
         packagePrice: product.packagePrice,
-        subtotal,
+        subtotal: pricing.subtotal,
+        conversionLabel: pricing.hasBaleConversion ? pricing.summaryLabel : undefined,
+        discount: pricing.discount,
       };
     });
 
@@ -209,6 +219,8 @@ export async function POST(req: NextRequest) {
           unitsPerPackage: p.unitsPerPackage,
           packagePrice: Number(oi.packagePrice),
           subtotal: oi.subtotal,
+          conversionLabel: oi.conversionLabel,
+          discount: oi.discount,
         };
       }),
       totalAmount,

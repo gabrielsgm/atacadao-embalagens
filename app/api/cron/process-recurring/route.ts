@@ -7,6 +7,7 @@ import {
 } from "@/lib/whatsapp";
 import { advanceRecurringDate } from "@/lib/recurring";
 import { isBefore, startOfDay, addDays } from "date-fns";
+import { calculateProductPricing } from "@/lib/pricing";
 
 // Proteção por CRON_SECRET (Vercel Cron envia Authorization: Bearer <secret>)
 function isAuthorized(req: NextRequest): boolean {
@@ -62,10 +63,21 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      const totalAmount = activeItems.reduce(
-        (sum, i) => sum + Number(i.product.packagePrice) * i.quantity,
-        0
-      );
+      const evaluatedItems = activeItems.map((i) => {
+        const pricing = calculateProductPricing({
+          quantity: i.quantity,
+          packagePrice: Number(i.product.packagePrice),
+          unitsPerPackage: i.product.unitsPerPackage,
+          balePrice: i.product.balePrice ? Number(i.product.balePrice) : null,
+          unitsPerBale: i.product.unitsPerBale ?? null,
+        });
+        return {
+          item: i,
+          pricing,
+        };
+      });
+
+      const totalAmount = evaluatedItems.reduce((sum, e) => sum + e.pricing.subtotal, 0);
 
       const orderNumber = generateOrderNumber();
       const client = recurring.user.client;
@@ -95,14 +107,14 @@ export async function GET(req: NextRequest) {
           deliveryState,
           deliveryZip,
           items: {
-            create: activeItems.map((i) => ({
-              productId: i.productId,
-              productName: i.product.name,
-              productSku: i.product.sku,
-              quantity: i.quantity,
-              unitPrice: i.product.unitPrice,
-              packagePrice: i.product.packagePrice,
-              subtotal: Number(i.product.packagePrice) * i.quantity,
+            create: evaluatedItems.map((e) => ({
+              productId: e.item.productId,
+              productName: e.item.product.name,
+              productSku: e.item.product.sku,
+              quantity: e.item.quantity,
+              unitPrice: e.item.product.unitPrice,
+              packagePrice: e.item.product.packagePrice,
+              subtotal: e.pricing.subtotal,
             })),
           },
         },
@@ -124,13 +136,15 @@ export async function GET(req: NextRequest) {
         orderNumber,
         clientName: recurring.user.name,
         companyName: client?.companyName,
-        items: activeItems.map((i) => ({
-          name: i.product.name,
-          sku: i.product.sku,
-          quantity: i.quantity,
-          unitsPerPackage: i.product.unitsPerPackage,
-          packagePrice: Number(i.product.packagePrice),
-          subtotal: Number(i.product.packagePrice) * i.quantity,
+        items: evaluatedItems.map((e) => ({
+          name: e.item.product.name,
+          sku: e.item.product.sku,
+          quantity: e.item.quantity,
+          unitsPerPackage: e.item.product.unitsPerPackage,
+          packagePrice: Number(e.item.product.packagePrice),
+          subtotal: e.pricing.subtotal,
+          conversionLabel: e.pricing.hasBaleConversion ? e.pricing.summaryLabel : undefined,
+          discount: e.pricing.discount,
         })),
         totalAmount,
         deliveryType: recurring.deliveryType,

@@ -7,6 +7,8 @@ export interface WhatsAppOrderItem {
   unitsPerPackage: number;
   packagePrice: number;
   subtotal: number;
+  conversionLabel?: string;
+  discount?: number;
 }
 
 export interface WhatsAppOrderData {
@@ -49,9 +51,15 @@ export function generateWhatsAppText(order: WhatsAppOrderData): string {
   lines.push("");
   lines.push("📦 *ITENS DO PEDIDO:*");
   order.items.forEach((item, i) => {
-    lines.push(
-      `${i + 1}. ${item.name} (${item.sku})\n   └ ${item.quantity} pacote(s) × ${item.unitsPerPackage} un = ${item.quantity * item.unitsPerPackage} unidades\n   └ ${formatCurrency(item.packagePrice)}/pacote = *${formatCurrency(item.subtotal)}*`
-    );
+    let detail = `${i + 1}. ${item.name} (${item.sku})\n   └ ${item.quantity} pacote(s) × ${item.unitsPerPackage} un = ${item.quantity * item.unitsPerPackage} unidades`;
+    if (item.conversionLabel) {
+      detail += ` [${item.conversionLabel}]`;
+    }
+    detail += `\n   └ Total item = *${formatCurrency(item.subtotal)}*`;
+    if (item.discount && item.discount > 0) {
+      detail += ` _(Economia Fardo: -${formatCurrency(item.discount)})_`;
+    }
+    lines.push(detail);
   });
 
   lines.push("");
