@@ -1,0 +1,255 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  CLIENT
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  DELIVERING
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryType {
+  DELIVERY
+  PICKUP
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  BIWEEKLY
+  MULTIDAY
+  MONTHLY
+}
+
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  password      String?
+  name          String
+  role          Role       @default(CLIENT)
+  status        UserStatus @default(PENDING)
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  client         Client?
+  orders         Order[]
+  recurringOrders RecurringOrder[]
+
+  @@map("users")
+}
+
+model Client {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  companyName      String
+  tradeName        String?
+  cnpj             String?  @unique
+  representativeName String
+  phone            String
+  whatsapp         String?
+
+  // Endereço cadastral
+  addressStreet    String?
+  addressNumber    String?
+  addressComplement String?
+  addressNeighborhood String?
+  addressCity      String?
+  addressState     String?
+  addressZip       String?
+
+  // Endereço de entrega (se diferente)
+  deliveryStreet    String?
+  deliveryNumber    String?
+  deliveryComplement String?
+  deliveryNeighborhood String?
+  deliveryCity      String?
+  deliveryState     String?
+  deliveryZip       String?
+  useSameAddress    Boolean  @default(true)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("clients")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  icon        String?
+  active      Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  sku              String   @unique
+  name             String
+  description      String?
+  dimensions       String?
+  material         String?
+  capacity         String?
+  unitPrice        Decimal  @db.Decimal(10, 2)
+  packagePrice     Decimal  @db.Decimal(10, 2)
+  unitsPerPackage  Int      @default(1)
+  stock            Int      @default(0)
+  imageUrl         String?
+  active           Boolean  @default(true)
+  salesCount       Int      @default(0)
+  categoryId       String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  category         Category   @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+  recurringItems   RecurringOrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  userId          String
+  orderNumber     String       @unique
+  status          OrderStatus  @default(PENDING)
+  deliveryType    DeliveryType @default(DELIVERY)
+  totalAmount     Decimal      @db.Decimal(10, 2)
+  isRecurring     Boolean      @default(false)
+  recurringOrderId String?
+
+  // Endereço de entrega snapshot
+  deliveryStreet    String?
+  deliveryNumber    String?
+  deliveryComplement String?
+  deliveryNeighborhood String?
+  deliveryCity      String?
+  deliveryState     String?
+  deliveryZip       String?
+
+  notes           String?
+  whatsappSent    Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  recurringOrder  RecurringOrder? @relation(fields: [recurringOrderId], references: [id])
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String   // snapshot do nome no momento do pedido
+  productSku  String   // snapshot do SKU
+  quantity    Int      // em pacotes
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  packagePrice Decimal @db.Decimal(10, 2)
+  subtotal    Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model RecurringOrder {
+  id           String             @id @default(cuid())
+  userId       String
+  name         String             // apelido para identificar a recorrência
+  frequency    RecurringFrequency
+  status       RecurringStatus    @default(ACTIVE)
+  deliveryType DeliveryType       @default(DELIVERY)
+
+  // Configuração de frequência
+  weekdays     Int[]              // 0=Dom, 1=Seg, ..., 6=Sáb (para WEEKLY, MULTIDAY)
+  dayOfMonth   Int?               // para MONTHLY (1-31)
+  startDate    DateTime           @default(now())
+  nextRunAt    DateTime
+
+  // Endereço de entrega
+  deliveryStreet    String?
+  deliveryNumber    String?
+  deliveryComplement String?
+  deliveryNeighborhood String?
+  deliveryCity      String?
+  deliveryState     String?
+  deliveryZip       String?
+
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id])
+  items        RecurringOrderItem[]
+  generatedOrders Order[]
+
+  @@map("recurring_orders")
+}
+
+model RecurringOrderItem {
+  id               String   @id @default(cuid())
+  recurringOrderId String
+  productId        String
+  quantity         Int      // em pacotes
+
+  recurringOrder   RecurringOrder @relation(fields: [recurringOrderId], references: [id], onDelete: Cascade)
+  product          Product        @relation(fields: [productId], references: [id])
+
+  @@map("recurring_order_items")
+}
+
+model AppConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_config")
+}
