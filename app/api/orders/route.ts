@@ -18,6 +18,8 @@ const orderSchema = z.object({
     })
   ).min(1),
   deliveryType: z.enum(["DELIVERY", "PICKUP"]),
+  paymentMethod: z.string().optional().default("PIX"),
+  paymentChange: z.string().optional().nullable(),
   deliveryAddress: z
     .object({
       street: z.string(),
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { items, deliveryType, deliveryAddress } = parsed.data;
+    const { items, deliveryType, paymentMethod, paymentChange, deliveryAddress } = parsed.data;
 
     // Buscar produtos com preços atuais
     const productIds = items.map((i) => i.productId);
@@ -162,6 +164,8 @@ export async function POST(req: NextRequest) {
         orderNumber,
         status: "PENDING",
         deliveryType,
+        paymentMethod,
+        paymentChange: paymentChange ?? null,
         totalAmount,
         deliveryStreet: delivAddr?.street,
         deliveryNumber: delivAddr?.number,
@@ -225,6 +229,8 @@ export async function POST(req: NextRequest) {
       }),
       totalAmount,
       deliveryType,
+      paymentMethod,
+      paymentChange: paymentChange ?? undefined,
       deliveryAddress: delivAddr,
       storeAddress: configMap.store_address,
       storeHours: configMap.store_hours,

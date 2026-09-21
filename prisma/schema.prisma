@@ -158,6 +158,8 @@ model Order {
   orderNumber     String       @unique
   status          OrderStatus  @default(PENDING)
   deliveryType    DeliveryType @default(DELIVERY)
+  paymentMethod   String?      @default("PIX")
+  paymentChange   String?
   totalAmount     Decimal      @db.Decimal(10, 2)
   isRecurring     Boolean      @default(false)
   recurringOrderId String?
@@ -208,6 +210,7 @@ model RecurringOrder {
   frequency    RecurringFrequency
   status       RecurringStatus    @default(ACTIVE)
   deliveryType DeliveryType       @default(DELIVERY)
+  paymentMethod String?           @default("PIX")
 
   // Configuração de frequência
   weekdays     Int[]              // 0=Dom, 1=Seg, ..., 6=Sáb (para WEEKLY, MULTIDAY)

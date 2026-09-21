@@ -20,6 +20,11 @@ import {
   ChevronRight,
   AlertTriangle,
   ArrowRight,
+  CreditCard,
+  Banknote,
+  QrCode,
+  FileText,
+  Check,
 } from "lucide-react";
 import { calculateProductPricing } from "@/lib/pricing";
 import { useRouter } from "next/navigation";
@@ -27,6 +32,42 @@ import { useToast } from "@/components/ui/toaster";
 import { useSession } from "next-auth/react";
 
 type DeliveryType = "DELIVERY" | "PICKUP";
+type PaymentMethod = "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "CASH" | "BOLETO";
+
+const PAYMENT_OPTIONS = [
+  {
+    id: "PIX" as PaymentMethod,
+    label: "PIX",
+    badge: "À vista",
+    description: "Chave/QR Code na confirmação",
+    icon: QrCode,
+  },
+  {
+    id: "CREDIT_CARD" as PaymentMethod,
+    label: "Cartão de Crédito",
+    description: "Maquininha na entrega/retirada",
+    icon: CreditCard,
+  },
+  {
+    id: "DEBIT_CARD" as PaymentMethod,
+    label: "Cartão de Débito",
+    description: "Maquininha na entrega/retirada",
+    icon: CreditCard,
+  },
+  {
+    id: "CASH" as PaymentMethod,
+    label: "Dinheiro (À vista)",
+    description: "Pagamento no ato com troco",
+    icon: Banknote,
+  },
+  {
+    id: "BOLETO" as PaymentMethod,
+    label: "Boleto Faturado",
+    badge: "CNPJ",
+    description: "Faturamento p/ clientes PJ",
+    icon: FileText,
+  },
+];
 
 interface ProfileStatus {
   profileComplete: boolean;
@@ -40,6 +81,9 @@ export function CartDrawer() {
   const router = useRouter();
   const { toast } = useToast();
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("DELIVERY");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PIX");
+  const [needChange, setNeedChange] = useState(false);
+  const [changeFor, setChangeFor] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileStatus, setProfileStatus] = useState<ProfileStatus | null>(null);
 
@@ -81,6 +125,8 @@ export function CartDrawer() {
             quantity: item.quantity,
           })),
           deliveryType,
+          paymentMethod,
+          paymentChange: paymentMethod === "CASH" && needChange && changeFor ? changeFor : null,
         }),
       });
 
@@ -337,6 +383,83 @@ export function CartDrawer() {
                   Retirada
                 </button>
               </div>
+            </div>
+
+            {/* Payment method */}
+            <div>
+              <p className="text-xs font-semibold text-surface-100 uppercase tracking-wider mb-2">
+                Forma de pagamento
+              </p>
+              <div className="grid grid-cols-1 gap-2">
+                {PAYMENT_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = paymentMethod === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setPaymentMethod(opt.id)}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                        isSelected
+                          ? "bg-brand-500/15 border-brand-500/60 text-white ring-1 ring-brand-500/40"
+                          : "bg-surface-700/70 border-surface-600/70 text-surface-50 hover:border-surface-500 hover:bg-surface-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-brand-500/30 text-brand-300"
+                              : "bg-surface-600 text-surface-300"
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold truncate flex items-center gap-1.5">
+                            {opt.label}
+                            {opt.badge && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-brand-500/20 text-brand-300 border border-brand-500/30 font-semibold">
+                                {opt.badge}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-surface-100 truncate">
+                            {opt.description}
+                          </p>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <Check className="h-4 w-4 text-brand-400 shrink-0 ml-2" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Se Dinheiro for selecionado: campo opcional de troco */}
+              {paymentMethod === "CASH" && (
+                <div className="mt-2 p-3 bg-surface-700/60 rounded-xl border border-surface-600/70 space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs text-surface-100">
+                    <input
+                      type="checkbox"
+                      checked={needChange}
+                      onChange={(e) => setNeedChange(e.target.checked)}
+                      className="rounded border-surface-500 text-brand-500 focus:ring-brand-500"
+                    />
+                    <span>Precisa de troco para dinheiro?</span>
+                  </label>
+                  {needChange && (
+                    <input
+                      type="text"
+                      placeholder="Ex: Troco para R$ 100,00 ou R$ 200,00"
+                      value={changeFor}
+                      onChange={(e) => setChangeFor(e.target.value)}
+                      className="w-full text-xs px-3 py-2 rounded-lg bg-surface-800 border border-surface-600 text-white placeholder:text-surface-400 focus:outline-none focus:border-brand-500"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Total */}

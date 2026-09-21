@@ -78,7 +78,13 @@ export default async function PedidosPage() {
                     )}
                   </div>
                   <p className="text-xs text-surface-100 mt-1">
-                    {formatDateTime(order.createdAt)}
+                    {formatDateTime(order.createdAt)} ·{" "}
+                    {order.deliveryType === "DELIVERY" ? "🚚 Entrega" : "🏪 Retirada"}
+                    {order.paymentMethod && (
+                      <span className="ml-1 text-surface-200">
+                        · 💳 {order.paymentMethod === "PIX" ? "PIX" : order.paymentMethod === "CASH" ? "Dinheiro" : order.paymentMethod === "CREDIT_CARD" ? "Crédito" : order.paymentMethod === "DEBIT_CARD" ? "Débito" : "Boleto"}
+                      </span>
+                    )}
                     {order.recurringOrder && (
                       <span className="ml-2 text-blue-400">
                         · {order.recurringOrder.name}

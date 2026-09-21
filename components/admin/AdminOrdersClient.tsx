@@ -23,6 +23,8 @@ interface Order {
   orderNumber: string;
   status: OrderStatus;
   deliveryType: string;
+  paymentMethod?: string | null;
+  paymentChange?: string | null;
   totalAmount: number;
   isRecurring: boolean;
   createdAt: Date;
@@ -308,9 +310,17 @@ export function AdminOrdersClient({ initialOrders }: { initialOrders: Order[] })
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-surface-100 mt-0.5">
-                        {order.items.length} item(ns) ·{" "}
-                        {order.deliveryType === "DELIVERY" ? "🚚 Entrega" : "🏪 Retirada"}
+                      <p className="text-xs text-surface-100 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span>
+                          {order.items.length} item(ns) ·{" "}
+                          {order.deliveryType === "DELIVERY" ? "🚚 Entrega" : "🏪 Retirada"}
+                        </span>
+                        {order.paymentMethod && (
+                          <span className="px-1.5 py-0.5 rounded bg-surface-700 text-surface-200 border border-surface-600 text-[10px] font-semibold">
+                            💳 {order.paymentMethod === "PIX" ? "PIX" : order.paymentMethod === "CASH" ? "Dinheiro" : order.paymentMethod === "CREDIT_CARD" ? "Crédito" : order.paymentMethod === "DEBIT_CARD" ? "Débito" : "Boleto"}
+                            {order.paymentChange ? ` (Troco: ${order.paymentChange})` : ""}
+                          </span>
+                        )}
                       </p>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">

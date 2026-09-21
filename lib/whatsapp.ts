@@ -30,7 +30,17 @@ export interface WhatsAppOrderData {
   storeAddress?: string;
   storeHours?: string;
   isRecurring?: boolean;
+  paymentMethod?: string;
+  paymentChange?: string;
 }
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  PIX: "PIX (À vista)",
+  CREDIT_CARD: "Cartão de Crédito (na entrega/retirada)",
+  DEBIT_CARD: "Cartão de Débito (na entrega/retirada)",
+  CASH: "Dinheiro (À vista)",
+  BOLETO: "Boleto Faturado (CNPJ)",
+};
 
 export function generateWhatsAppText(order: WhatsAppOrderData): string {
   const lines: string[] = [];
@@ -64,6 +74,12 @@ export function generateWhatsAppText(order: WhatsAppOrderData): string {
 
   lines.push("");
   lines.push(`💰 *TOTAL: ${formatCurrency(order.totalAmount)}*`);
+
+  const paymentStr = PAYMENT_METHOD_LABELS[order.paymentMethod ?? "PIX"] || order.paymentMethod || "PIX (À vista)";
+  lines.push(`💳 *FORMA DE PAGAMENTO:* ${paymentStr}`);
+  if (order.paymentMethod === "CASH" && order.paymentChange) {
+    lines.push(`💵 *Troco para:* ${order.paymentChange}`);
+  }
   lines.push("");
 
   if (order.deliveryType === "DELIVERY" && order.deliveryAddress) {
