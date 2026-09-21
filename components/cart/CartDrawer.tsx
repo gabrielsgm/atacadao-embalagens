@@ -23,7 +23,6 @@ import {
   CreditCard,
   Banknote,
   QrCode,
-  FileText,
   Check,
 } from "lucide-react";
 import { calculateProductPricing } from "@/lib/pricing";
@@ -32,7 +31,7 @@ import { useToast } from "@/components/ui/toaster";
 import { useSession } from "next-auth/react";
 
 type DeliveryType = "DELIVERY" | "PICKUP";
-type PaymentMethod = "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "CASH" | "BOLETO";
+type PaymentMethod = "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "CASH";
 
 const PAYMENT_OPTIONS = [
   {
@@ -59,13 +58,6 @@ const PAYMENT_OPTIONS = [
     label: "Dinheiro (À vista)",
     description: "Pagamento no ato com troco",
     icon: Banknote,
-  },
-  {
-    id: "BOLETO" as PaymentMethod,
-    label: "Boleto Faturado",
-    badge: "CNPJ",
-    description: "Faturamento p/ clientes PJ",
-    icon: FileText,
   },
 ];
 
@@ -147,6 +139,13 @@ export function CartDrawer() {
       const { order, whatsappUrl } = await res.json();
       clearCart();
       closeCart();
+
+      // Salvar URL no sessionStorage como garantia
+      if (typeof window !== "undefined" && whatsappUrl) {
+        try {
+          sessionStorage.setItem(`order_wa_${order.orderNumber}`, whatsappUrl);
+        } catch {}
+      }
 
       // Redirecionar para confirmação com link do WhatsApp
       router.push(

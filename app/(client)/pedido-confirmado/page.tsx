@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, MessageCircle, Package, RotateCcw, ExternalLink } from "lucide-react";
@@ -9,7 +9,18 @@ import { CheckCircle, MessageCircle, Package, RotateCcw, ExternalLink } from "lu
 function PedidoConfirmadoContent() {
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get("orderNumber");
-  const whatsappUrl = searchParams.get("whatsapp");
+  const rawWhatsapp = searchParams.get("whatsapp");
+
+  const [whatsappUrl, setWhatsappUrl] = useState<string>(rawWhatsapp || "");
+
+  useEffect(() => {
+    if (!whatsappUrl && orderNumber && typeof window !== "undefined") {
+      const stored = sessionStorage.getItem(`order_wa_${orderNumber}`);
+      if (stored) {
+        setWhatsappUrl(stored);
+      }
+    }
+  }, [whatsappUrl, orderNumber]);
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
@@ -53,7 +64,7 @@ function PedidoConfirmadoContent() {
               já preenchido e enviar para confirmar com nossa equipe.
             </p>
             <a
-              href={decodeURIComponent(whatsappUrl)}
+              href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white font-bold px-6 py-3 rounded-xl transition-colors shadow-lg"

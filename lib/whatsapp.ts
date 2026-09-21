@@ -44,8 +44,8 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export function generateWhatsAppText(order: WhatsAppOrderData): string {
   const lines: string[] = [];
-  lines.push("🛒 *NOVO PEDIDO — ATACADO EMBALAGENS*");
-  lines.push("─────────────────────────────────");
+  lines.push("🛒 *NOVO PEDIDO - ATACADO EMBALAGENS*");
+  lines.push("---------------------------------");
 
   if (order.isRecurring) {
     lines.push("🔄 *Pedido Recorrente*");
@@ -61,11 +61,11 @@ export function generateWhatsAppText(order: WhatsAppOrderData): string {
   lines.push("");
   lines.push("📦 *ITENS DO PEDIDO:*");
   order.items.forEach((item, i) => {
-    let detail = `${i + 1}. ${item.name} (${item.sku})\n   └ ${item.quantity} pacote(s) × ${item.unitsPerPackage} un = ${item.quantity * item.unitsPerPackage} unidades`;
+    let detail = `${i + 1}. ${item.name} (${item.sku})\n   - ${item.quantity} pacote(s) × ${item.unitsPerPackage} un = ${item.quantity * item.unitsPerPackage} unidades`;
     if (item.conversionLabel) {
       detail += ` [${item.conversionLabel}]`;
     }
-    detail += `\n   └ Total item = *${formatCurrency(item.subtotal)}*`;
+    detail += `\n   - Total item = *${formatCurrency(item.subtotal)}*`;
     if (item.discount && item.discount > 0) {
       detail += ` _(Economia Fardo: -${formatCurrency(item.discount)})_`;
     }
@@ -88,7 +88,7 @@ export function generateWhatsAppText(order: WhatsAppOrderData): string {
     lines.push(
       `${addr.street}, ${addr.number}${addr.complement ? ` - ${addr.complement}` : ""}`
     );
-    lines.push(`${addr.neighborhood} — ${addr.city}/${addr.state}`);
+    lines.push(`${addr.neighborhood} - ${addr.city}/${addr.state}`);
     lines.push(`CEP: ${addr.zip}`);
   } else {
     lines.push("🏪 *RETIRADA NA LOJA:*");
@@ -106,6 +106,10 @@ export function generateWhatsAppURL(
   whatsappNumber: string,
   text: string
 ): string {
+  let cleanNumber = (whatsappNumber || "").replace(/\D/g, "");
+  if (cleanNumber.length === 10 || cleanNumber.length === 11) {
+    cleanNumber = `55${cleanNumber}`;
+  }
   const encoded = encodeURIComponent(text);
-  return `https://wa.me/${whatsappNumber}?text=${encoded}`;
+  return `https://api.whatsapp.com/send?phone=${cleanNumber}&text=${encoded}`;
 }
