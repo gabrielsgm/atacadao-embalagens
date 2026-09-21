@@ -27,13 +27,15 @@ export function parseExcelBuffer<T>(buffer: Buffer): T[] {
 export interface ProductImportRow {
   sku: string;
   name: string;
-  description: string;
-  dimensions: string;
-  material: string;
-  capacity: string;
-  unit_price: number;
+  description?: string;
+  dimensions?: string;
+  material?: string;
+  capacity?: string;
+  unit_price?: number;
   package_price: number;
   units_per_package: number;
+  bale_price?: number;
+  units_per_bale?: number;
   stock: number;
   category_slug: string;
 }
@@ -44,10 +46,11 @@ export const PRODUCT_TEMPLATE_HEADERS: ProductImportRow = {
   description: "Descrição do produto",
   dimensions: "22x18x14 cm",
   material: "EPS",
-  capacity: "5 litros",
   unit_price: 3.5,
   package_price: 280.0,
   units_per_package: 80,
+  bale_price: 1200.0,
+  units_per_bale: 400,
   stock: 500,
   category_slug: "isopor",
 };

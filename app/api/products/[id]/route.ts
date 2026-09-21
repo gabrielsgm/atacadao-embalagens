@@ -13,6 +13,8 @@ const updateSchema = z.object({
   unitPrice: z.number().positive().optional(),
   packagePrice: z.number().positive().optional(),
   unitsPerPackage: z.number().int().positive().optional(),
+  balePrice: z.number().positive().nullable().optional(),
+  unitsPerBale: z.number().int().positive().nullable().optional(),
   stock: z.number().int().min(0).optional(),
   categoryId: z.string().optional(),
   imageUrl: z.string().nullable().optional(),

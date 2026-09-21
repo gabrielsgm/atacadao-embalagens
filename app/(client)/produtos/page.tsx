@@ -69,6 +69,8 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
             ...product,
             unitPrice: Number(product.unitPrice),
             packagePrice: Number(product.packagePrice),
+            balePrice: product.balePrice ? Number(product.balePrice) : null,
+            unitsPerBale: product.unitsPerBale ?? null,
           }}
         />
       ))}

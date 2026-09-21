@@ -135,6 +135,8 @@ model Product {
   unitPrice        Decimal  @db.Decimal(10, 2)
   packagePrice     Decimal  @db.Decimal(10, 2)
   unitsPerPackage  Int      @default(1)
+  balePrice        Decimal? @db.Decimal(10, 2)
+  unitsPerBale     Int?
   stock            Int      @default(0)
   imageUrl         String?
   active           Boolean  @default(true)

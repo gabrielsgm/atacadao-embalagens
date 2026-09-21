@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   Download,
   Package,
+  Boxes,
   Image as ImageIcon,
   CheckCircle,
   AlertCircle,
@@ -37,10 +38,11 @@ interface Product {
   description?: string | null;
   dimensions?: string | null;
   material?: string | null;
-  capacity?: string | null;
   unitPrice: number;
   packagePrice: number;
   unitsPerPackage: number;
+  balePrice?: number | null;
+  unitsPerBale?: number | null;
   stock: number;
   imageUrl?: string | null;
   active: boolean;
@@ -65,10 +67,14 @@ const productSchema = z.object({
   description: z.string().optional(),
   dimensions: z.string().optional(),
   material: z.string().optional(),
-  capacity: z.string().optional(),
-  unitPrice: z.coerce.number().positive("Preço unitário inválido"),
-  packagePrice: z.coerce.number().positive("Preço do pacote inválido"),
-  unitsPerPackage: z.coerce.number().int().positive("Unidades por pacote inválido"),
+  packagePrice: z.coerce.number().positive("Preço do pacote obrigatório e positivo"),
+  unitsPerPackage: z.coerce.number().int().positive("Quantidade por pacote obrigatória"),
+  balePrice: z
+    .preprocess((val) => (val === "" || val === undefined || Number.isNaN(val) ? null : val), z.coerce.number().positive("Preço do fardo inválido").nullable().optional()),
+  unitsPerBale: z
+    .preprocess((val) => (val === "" || val === undefined || Number.isNaN(val) ? null : val), z.coerce.number().int().positive("Quantidade por fardo inválida").nullable().optional()),
+  unitPrice: z
+    .preprocess((val) => (val === "" || val === undefined || Number.isNaN(val) ? undefined : val), z.coerce.number().positive("Preço unitário inválido").optional()),
   stock: z.coerce.number().int().min(0, "Estoque inválido"),
   categoryId: z.string().min(1, "Categoria obrigatória"),
   active: z.boolean(),
@@ -98,6 +104,7 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema) as any,
@@ -107,6 +114,13 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
       stock: 0,
     },
   });
+
+  const watchedPackagePrice = watch("packagePrice");
+  const watchedUnitsPerPackage = watch("unitsPerPackage");
+  const unitPriceCalculated =
+    watchedPackagePrice && watchedUnitsPerPackage && watchedUnitsPerPackage > 0
+      ? watchedPackagePrice / watchedUnitsPerPackage
+      : null;
 
   const filtered = products.filter(
     (p) =>
@@ -118,7 +132,21 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
     setEditingProduct(null);
     setPreviewUrl(null);
     setImageUrl(null);
-    reset();
+    reset({
+      sku: "",
+      name: "",
+      description: "",
+      dimensions: "",
+      material: "",
+      packagePrice: undefined as any,
+      unitsPerPackage: 1,
+      balePrice: null as any,
+      unitsPerBale: null as any,
+      unitPrice: undefined as any,
+      stock: 0,
+      categoryId: "",
+      active: true,
+    });
     setDialogOpen(true);
   };
 
@@ -132,10 +160,11 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
       description: product.description ?? "",
       dimensions: product.dimensions ?? "",
       material: product.material ?? "",
-      capacity: product.capacity ?? "",
-      unitPrice: product.unitPrice,
       packagePrice: product.packagePrice,
       unitsPerPackage: product.unitsPerPackage,
+      balePrice: product.balePrice ?? null,
+      unitsPerBale: product.unitsPerBale ?? null,
+      unitPrice: product.unitPrice,
       stock: product.stock,
       categoryId: product.categoryId,
       active: product.active,
@@ -163,7 +192,18 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
   };
 
   const onSubmit = async (data: ProductFormData) => {
-    const payload = { ...data, imageUrl: imageUrl ?? undefined };
+    const finalUnitPrice =
+      data.unitPrice && data.unitPrice > 0
+        ? data.unitPrice
+        : Number((data.packagePrice / data.unitsPerPackage).toFixed(2));
+
+    const payload = {
+      ...data,
+      unitPrice: finalUnitPrice,
+      balePrice: data.balePrice ? Number(data.balePrice) : null,
+      unitsPerBale: data.unitsPerBale ? Number(data.unitsPerBale) : null,
+      imageUrl: imageUrl ?? undefined,
+    };
     const url = editingProduct ? `/api/products/${editingProduct.id}` : "/api/products";
     const method = editingProduct ? "PUT" : "POST";
 
@@ -181,7 +221,14 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
 
     const { product } = await res.json();
     const cat = categories.find((c) => c.id === product.categoryId);
-    const fullProduct = { ...product, category: cat ?? { id: "", name: "" } };
+    const fullProduct = {
+      ...product,
+      unitPrice: Number(product.unitPrice),
+      packagePrice: Number(product.packagePrice),
+      balePrice: product.balePrice ? Number(product.balePrice) : null,
+      unitsPerBale: product.unitsPerBale ? Number(product.unitsPerBale) : null,
+      category: cat ?? { id: "", name: "" },
+    };
 
     if (editingProduct) {
       setProducts((prev) => prev.map((p) => (p.id === product.id ? fullProduct : p)));
@@ -215,10 +262,12 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
       // Recarregar lista
       const productsRes = await fetch("/api/products?limit=1000");
       const { products: newProducts } = await productsRes.json();
-      setProducts(newProducts.map((p: Product & { unitPrice: string; packagePrice: string }) => ({
+      setProducts(newProducts.map((p: any) => ({
         ...p,
         unitPrice: Number(p.unitPrice),
         packagePrice: Number(p.packagePrice),
+        balePrice: p.balePrice ? Number(p.balePrice) : null,
+        unitsPerBale: p.unitsPerBale ? Number(p.unitsPerBale) : null,
       })));
     }
   };
@@ -275,8 +324,9 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
                 <th className="px-4 py-3 text-surface-100 font-medium">Produto</th>
                 <th className="px-4 py-3 text-surface-100 font-medium hidden sm:table-cell">SKU</th>
                 <th className="px-4 py-3 text-surface-100 font-medium hidden md:table-cell">Categoria</th>
-                <th className="px-4 py-3 text-surface-100 font-medium">Preço/pct</th>
-                <th className="px-4 py-3 text-surface-100 font-medium hidden lg:table-cell">Estoque</th>
+                <th className="px-4 py-3 text-surface-100 font-medium">Pacote</th>
+                <th className="px-4 py-3 text-surface-100 font-medium hidden lg:table-cell">Fardo</th>
+                <th className="px-4 py-3 text-surface-100 font-medium hidden xl:table-cell">Estoque</th>
                 <th className="px-4 py-3 text-surface-100 font-medium">Status</th>
                 <th className="px-4 py-3 text-surface-100 font-medium text-right">Ações</th>
               </tr>
@@ -284,7 +334,7 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-surface-100">
+                  <td colSpan={8} className="px-4 py-12 text-center text-surface-100">
                     Nenhum produto encontrado
                   </td>
                 </tr>
@@ -315,9 +365,24 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
                       <Badge variant="brand" size="sm">{product.category.name}</Badge>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-bold text-brand-400">{formatCurrency(product.packagePrice)}</span>
+                      <div>
+                        <span className="font-bold text-brand-400 block">{formatCurrency(product.packagePrice)}</span>
+                        <span className="text-[11px] text-surface-100">{product.unitsPerPackage} un/pct</span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-surface-100">{product.stock} pct</td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {product.balePrice ? (
+                        <div>
+                          <span className="font-semibold text-emerald-400 block">{formatCurrency(product.balePrice)}</span>
+                          <span className="text-[11px] text-surface-100">
+                            {product.unitsPerBale ? `${product.unitsPerBale} un/fardo` : "Fardo"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-surface-400 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden xl:table-cell text-surface-100">{product.stock} pct</td>
                     <td className="px-4 py-3">
                       <Badge variant={product.active ? "success" : "danger"} size="sm">
                         {product.active ? "Ativo" : "Inativo"}
@@ -416,52 +481,96 @@ export function AdminProductsClient({ initialProducts, categories }: AdminProduc
             <Input {...register("name")} label="Nome do produto" placeholder="Caixa de Isopor 5L" error={errors.name?.message} required id="product-name" />
             <Textarea {...register("description")} label="Descrição" placeholder="Descrição detalhada do produto" id="product-description" />
 
-            <div className="grid grid-cols-3 gap-4">
-              <Input {...register("dimensions")} label="Dimensões" placeholder="22x18x14 cm" id="product-dimensions" />
-              <Input {...register("material")} label="Material" placeholder="EPS" id="product-material" />
-              <Input {...register("capacity")} label="Capacidade" placeholder="5 litros" id="product-capacity" />
+            <div className="grid grid-cols-2 gap-4">
+              <Input {...register("dimensions")} label="Dimensões" placeholder="Ex: 22x18x14 cm" id="product-dimensions" />
+              <Input {...register("material")} label="Material" placeholder="Ex: EPS / Plástico / Papelão" id="product-material" />
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            {/* Configuração de Pacote */}
+            <div className="p-4 bg-surface-700/60 rounded-xl border border-surface-600 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                  <Package className="h-4 w-4 text-brand-400" />
+                  <span>Embalagem por Pacote (Venda Padrão)</span>
+                </div>
+                {unitPriceCalculated !== null && (
+                  <span className="text-xs text-brand-300 bg-brand-500/10 px-2 py-0.5 rounded-full border border-brand-500/20 font-medium">
+                    {formatCurrency(unitPriceCalculated)} / un
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  {...register("packagePrice", { valueAsNumber: true })}
+                  label="Preço por pacote (R$)"
+                  type="number"
+                  step="0.01"
+                  placeholder="280.00"
+                  error={errors.packagePrice?.message}
+                  required
+                  id="product-package-price"
+                />
+                <Input
+                  {...register("unitsPerPackage", { valueAsNumber: true })}
+                  label="Quantidade por pacote (unidades)"
+                  type="number"
+                  placeholder="80"
+                  error={errors.unitsPerPackage?.message}
+                  required
+                  id="product-units-per-package"
+                />
+              </div>
+            </div>
+
+            {/* Configuração de Fardo */}
+            <div className="p-4 bg-surface-700/60 rounded-xl border border-surface-600 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-white font-semibold text-sm">
+                  <Boxes className="h-4 w-4 text-emerald-400" />
+                  <span>Embalagem por Fardo (Atacado em Escala)</span>
+                </div>
+                <span className="text-[11px] text-surface-200">Opcional</span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  {...register("balePrice", { valueAsNumber: true })}
+                  label="Preço por fardo (R$)"
+                  type="number"
+                  step="0.01"
+                  placeholder="Ex: 1200.00"
+                  error={errors.balePrice?.message}
+                  id="product-bale-price"
+                />
+                <Input
+                  {...register("unitsPerBale", { valueAsNumber: true })}
+                  label="Quantidade por fardo"
+                  type="number"
+                  placeholder="Ex: 500 un ou 10 pct"
+                  error={errors.unitsPerBale?.message}
+                  id="product-units-per-bale"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <Input
                 {...register("unitPrice", { valueAsNumber: true })}
-                label="Preço unitário (R$)"
+                label="Preço unitário (R$ - opcional, calculado auto)"
                 type="number"
                 step="0.01"
-                placeholder="3.50"
+                placeholder={unitPriceCalculated ? unitPriceCalculated.toFixed(2) : "Auto"}
                 error={errors.unitPrice?.message}
-                required
                 id="product-unit-price"
               />
               <Input
-                {...register("packagePrice", { valueAsNumber: true })}
-                label="Preço por pacote (R$)"
+                {...register("stock", { valueAsNumber: true })}
+                label="Estoque (em pacotes)"
                 type="number"
-                step="0.01"
-                placeholder="280.00"
-                error={errors.packagePrice?.message}
-                required
-                id="product-package-price"
-              />
-              <Input
-                {...register("unitsPerPackage", { valueAsNumber: true })}
-                label="Un. por pacote"
-                type="number"
-                placeholder="100"
-                error={errors.unitsPerPackage?.message}
-                required
-                id="product-units-per-package"
+                placeholder="500"
+                error={errors.stock?.message}
+                id="product-stock"
               />
             </div>
-
-            <Input
-              {...register("stock", { valueAsNumber: true })}
-              label="Estoque (em pacotes)"
-              type="number"
-              placeholder="500"
-              error={errors.stock?.message}
-              id="product-stock"
-            />
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancelar</Button>

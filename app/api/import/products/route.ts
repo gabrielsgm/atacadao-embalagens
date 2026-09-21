@@ -54,13 +54,19 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const unitPrice = parseFloat(String(row.unit_price));
       const packagePrice = parseFloat(String(row.package_price));
       const unitsPerPackage = parseInt(String(row.units_per_package));
+      let unitPrice = parseFloat(String(row.unit_price));
+      if (isNaN(unitPrice) && !isNaN(packagePrice) && !isNaN(unitsPerPackage) && unitsPerPackage > 0) {
+        unitPrice = Number((packagePrice / unitsPerPackage).toFixed(2));
+      }
+
+      const balePrice = row.bale_price ? parseFloat(String(row.bale_price)) : null;
+      const unitsPerBale = row.units_per_bale ? parseInt(String(row.units_per_bale)) : null;
       const stock = parseInt(String(row.stock));
 
-      if (isNaN(unitPrice) || isNaN(packagePrice) || isNaN(unitsPerPackage)) {
-        results.errors.push({ row: rowNum, error: "Preços e quantidade inválidos" });
+      if (isNaN(packagePrice) || isNaN(unitsPerPackage) || isNaN(unitPrice)) {
+        results.errors.push({ row: rowNum, error: "Preço do pacote e quantidade por pacote inválidos" });
         continue;
       }
 
@@ -77,6 +83,8 @@ export async function POST(req: NextRequest) {
             unitPrice,
             packagePrice,
             unitsPerPackage,
+            balePrice: !isNaN(balePrice as number) && balePrice !== null ? balePrice : null,
+            unitsPerBale: !isNaN(unitsPerBale as number) && unitsPerBale !== null ? unitsPerBale : null,
             stock: isNaN(stock) ? 0 : stock,
             categoryId,
           },
@@ -89,6 +97,8 @@ export async function POST(req: NextRequest) {
             unitPrice,
             packagePrice,
             unitsPerPackage,
+            balePrice: !isNaN(balePrice as number) && balePrice !== null ? balePrice : undefined,
+            unitsPerBale: !isNaN(unitsPerBale as number) && unitsPerBale !== null ? unitsPerBale : undefined,
             stock: isNaN(stock) ? undefined : stock,
             categoryId,
           },

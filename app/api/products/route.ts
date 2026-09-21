@@ -10,9 +10,11 @@ const productSchema = z.object({
   dimensions: z.string().optional(),
   material: z.string().optional(),
   capacity: z.string().optional(),
-  unitPrice: z.number().positive(),
+  unitPrice: z.number().positive().optional(),
   packagePrice: z.number().positive(),
   unitsPerPackage: z.number().int().positive(),
+  balePrice: z.number().positive().nullable().optional(),
+  unitsPerBale: z.number().int().positive().nullable().optional(),
   stock: z.number().int().min(0),
   categoryId: z.string(),
   imageUrl: z.string().optional(),
@@ -86,7 +88,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const product = await prisma.product.create({ data: parsed.data });
+    const unitPrice =
+      parsed.data.unitPrice ??
+      Number((parsed.data.packagePrice / parsed.data.unitsPerPackage).toFixed(2));
+
+    const product = await prisma.product.create({
+      data: {
+        ...parsed.data,
+        unitPrice,
+      },
+    });
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
     console.error("[CREATE_PRODUCT]", error);

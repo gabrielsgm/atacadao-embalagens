@@ -20,6 +20,8 @@ export default async function AdminProdutosPage() {
         ...p,
         unitPrice: Number(p.unitPrice),
         packagePrice: Number(p.packagePrice),
+        balePrice: p.balePrice ? Number(p.balePrice) : null,
+        unitsPerBale: p.unitsPerBale ?? null,
       }))}
       categories={categories}
     />

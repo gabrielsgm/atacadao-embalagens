@@ -23,10 +23,11 @@ interface Product {
   description?: string | null;
   dimensions?: string | null;
   material?: string | null;
-  capacity?: string | null;
   unitPrice: number;
   packagePrice: number;
   unitsPerPackage: number;
+  balePrice?: number | null;
+  unitsPerBale?: number | null;
   imageUrl?: string | null;
   stock: number;
   category: { name: string };
@@ -138,6 +139,12 @@ export function ProductCard({ product }: { product: Product }) {
               <span>{product.unitsPerPackage} un/pacote</span>
               <span>{formatCurrency(product.unitPrice)}/un</span>
             </div>
+            {product.balePrice && (
+              <div className="text-[11px] text-emerald-400 font-medium pt-0.5">
+                Opção fardo: {formatCurrency(product.balePrice)}
+                {product.unitsPerBale ? ` (${product.unitsPerBale} un)` : ""}
+              </div>
+            )}
           </div>
 
           {/* Quantity + Add to cart */}
@@ -148,9 +155,9 @@ export function ProductCard({ product }: { product: Product }) {
                 className="p-2 text-surface-100 hover:text-white transition-colors"
                 aria-label="Diminuir quantidade"
               >
-                <Minus className="h-3 w-3" />
+                <Minus className="h-4 w-4" />
               </button>
-              <span className="text-sm font-bold text-white min-w-[2rem] text-center">
+              <span className="text-sm font-bold text-white min-w-[2rem] text-center" aria-label="Quantidade">
                 {quantity}
               </span>
               <button
@@ -158,11 +165,12 @@ export function ProductCard({ product }: { product: Product }) {
                 className="p-2 text-surface-100 hover:text-white transition-colors"
                 aria-label="Aumentar quantidade"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-4 w-4" />
               </button>
             </div>
             <Button
               onClick={handleAdd}
+              disabled={product.stock === 0}
               className="flex-1"
               size="sm"
               leftIcon={<ShoppingCart className="h-4 w-4" />}
@@ -198,8 +206,13 @@ export function ProductCard({ product }: { product: Product }) {
             {[
               { label: "Dimensões", value: product.dimensions },
               { label: "Material", value: product.material },
-              { label: "Capacidade", value: product.capacity },
               { label: "Unidades por pacote", value: `${product.unitsPerPackage} unidades` },
+              {
+                label: "Embalagem por fardo",
+                value: product.balePrice
+                  ? `${formatCurrency(product.balePrice)}${product.unitsPerBale ? ` (${product.unitsPerBale} un)` : ""}`
+                  : null,
+              },
             ]
               .filter((s) => s.value)
               .map((spec) => (
@@ -216,6 +229,15 @@ export function ProductCard({ product }: { product: Product }) {
               <p className="text-2xl font-black text-brand-400">{formatCurrency(product.packagePrice)}</p>
               <p className="text-xs text-surface-100">{formatCurrency(product.unitPrice)}/unidade</p>
             </div>
+            {product.balePrice && (
+              <div className="text-center">
+                <p className="text-xs text-surface-100">Preço por fardo</p>
+                <p className="text-xl font-bold text-emerald-400">{formatCurrency(product.balePrice)}</p>
+                <p className="text-xs text-surface-100">
+                  {product.unitsPerBale ? `${product.unitsPerBale} un/fardo` : "Fardo atacado"}
+                </p>
+              </div>
+            )}
             <div className="text-right">
               <p className="text-xs text-surface-100">Estoque</p>
               <p className="text-sm font-semibold text-white">{product.stock} pacotes</p>
